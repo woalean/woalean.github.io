@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-Hans">
+
+
+<script type="text/javascript"
+color="0,0,255" opacity='0.7' zIndex="-2" count="99" src="//cdn.bootcss.com/canvas-nest.js/1.0.0/canvas-nest.min.js"></script>
+
+
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+    
+      
+    
+
+    
+  
+
+  
+
+  
+
+  
+    
+      
+    
+
+    
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic|PT Mono:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.4" rel="stylesheet" type="text/css" />
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=5.1.4">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=5.1.4" color="#222">
+
+
+
+
+
+  <meta name="keywords" content="linux kernel," />
+
+
+
+
+
+
+
+
+
+
+<meta name="description" content="简介本篇博客旨在搞清楚systemd开机启动过程，从而对systemd有一个基础的理解。上篇提及linux启动过程,本篇旨在搞清楚systemd的启动过程。 systemd是什么？ 在linux中，d是守护进程（daemon）的缩写，systemd也就指的是系统的守护进程。 取代了init（sysvinit）初始化系统，成为pid为1的系统守护进程。 主要设计理念是：尽可能启动更少的进程；尽可能多">
+<meta name="keywords" content="linux kernel">
+<meta property="og:type" content="article">
+<meta property="og:title" content="linux内核之systemd">
+<meta property="og:url" content="http://readonly.com/2018/10/18/linux内核之systemd/index.html">
+<meta property="og:site_name" content="Ralph">
+<meta property="og:description" content="简介本篇博客旨在搞清楚systemd开机启动过程，从而对systemd有一个基础的理解。上篇提及linux启动过程,本篇旨在搞清楚systemd的启动过程。 systemd是什么？ 在linux中，d是守护进程（daemon）的缩写，systemd也就指的是系统的守护进程。 取代了init（sysvinit）初始化系统，成为pid为1的系统守护进程。 主要设计理念是：尽可能启动更少的进程；尽可能多">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:updated_time" content="2018-10-18T03:19:12.279Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="linux内核之systemd">
+<meta name="twitter:description" content="简介本篇博客旨在搞清楚systemd开机启动过程，从而对systemd有一个基础的理解。上篇提及linux启动过程,本篇旨在搞清楚systemd的启动过程。 systemd是什么？ 在linux中，d是守护进程（daemon）的缩写，systemd也就指的是系统的守护进程。 取代了init（sysvinit）初始化系统，成为pid为1的系统守护进程。 主要设计理念是：尽可能启动更少的进程；尽可能多">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '5.1.4',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://readonly.com/2018/10/18/linux内核之systemd/"/>
+
+
+
+
+
+  <title>linux内核之systemd | Ralph</title>
+  
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/"  class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Ralph</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://readonly.com/2018/10/18/linux内核之systemd/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="hjx">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/qian.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Ralph">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">linux内核之systemd</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-10-18T11:17:25+08:00">
+                2018-10-18
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h1 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h1><p>本篇博客旨在搞清楚systemd开机启动过程，从而对systemd有一个基础的理解。<br>上篇提及linux启动过程,本篇旨在搞清楚systemd的启动过程。</p>
+<h1 id="systemd是什么？"><a href="#systemd是什么？" class="headerlink" title="systemd是什么？"></a>systemd是什么？</h1><ol>
+<li>在linux中，d是守护进程（daemon）的缩写，systemd也就指的是系统的守护进程。</li>
+<li>取代了init（sysvinit）初始化系统，成为pid为1的系统守护进程。</li>
+<li>主要设计理念是：尽可能启动更少的进程；尽可能多的并行启动进程。从而大幅度减少启动时间。</li>
+</ol>
+<h1 id="启动过程"><a href="#启动过程" class="headerlink" title="启动过程"></a>启动过程</h1><p>传统linux启动过程大致为：<br>    电脑通电 -&gt; 处理器查找到bios -&gt; bios检测系统资源找到第一个引导设备的主引导记录（MBR）-&gt; 主引导记录初始化引导系统（grub或LILO）<br>    -&gt; grub加载内核(/boot/vmlinuz) -&gt; 内核创建init内核进程并执行/sbin/init程序（sysvinit）</p>
+<p>而最新的内核采用了systemd代替sysvinit，即 /sbin/init 其实是 /usr/lib/systemd/systemd的软链接。</p>
+<figure class="highlight crystal"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[root@ralph]<span class="comment"># ls -l /sbin/init</span></span><br><span class="line">lrwxrwxrwx. <span class="number">1</span> root root <span class="number">22</span> <span class="number">10</span>月  <span class="number">9</span> <span class="number">09</span>:<span class="number">44</span> /sbin/init -&gt; ../<span class="class"><span class="keyword">lib</span>/<span class="title">systemd</span>/<span class="title">systemd</span></span></span><br></pre></td></tr></table></figure>
+<h1 id="systemd-启动流程"><a href="#systemd-启动流程" class="headerlink" title="systemd 启动流程"></a>systemd 启动流程</h1><ol>
+<li>systemd执行的第一个目标是default.target, 但default.target是graphical.target的软链接。</li>
+</ol>
+<figure class="highlight crystal"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[root@ralph]<span class="comment"># ls -l /usr/lib/systemd/system/default.target</span></span><br><span class="line">lrwxrwxrwx. <span class="number">1</span> root root <span class="number">16</span> <span class="number">10</span>月  <span class="number">9</span> <span class="number">09</span>:<span class="number">44</span> /usr/<span class="class"><span class="keyword">lib</span>/<span class="title">systemd</span>/<span class="title">system</span>/<span class="title">default</span>.<span class="title">target</span> -&gt; <span class="title">graphical</span>.<span class="title">target</span></span></span><br></pre></td></tr></table></figure>
+<ol start="2">
+<li>graphical.target需要先启动multi-user.target。</li>
+</ol>
+<figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">[root@ralph]# systemctl cat graphical.target</span><br><span class="line">[Unit]</span><br><span class="line"><span class="attribute">Description</span>=Graphical Interface</span><br><span class="line"><span class="attribute">Documentation</span>=man:systemd.special(7)</span><br><span class="line"><span class="attribute">Requires</span>=multi-user.target</span><br><span class="line"><span class="attribute">Wants</span>=display-manager.service</span><br><span class="line"><span class="attribute">Conflicts</span>=rescue.service rescue.target</span><br><span class="line"><span class="attribute">After</span>=multi-user.target rescue.service rescue.target display-manager.service</span><br><span class="line"><span class="attribute">AllowIsolate</span>=<span class="literal">yes</span></span><br></pre></td></tr></table></figure>
+<ol start="3">
+<li>multi-user.target需要先启动basic.target</li>
+</ol>
+<figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">[root@ralph]# systemctl cat multi-user.target</span><br><span class="line">[Unit]</span><br><span class="line"><span class="attribute">Description</span>=Multi-User System</span><br><span class="line"><span class="attribute">Documentation</span>=man:systemd.special(7)</span><br><span class="line"><span class="attribute">Requires</span>=basic.target</span><br><span class="line"><span class="attribute">Conflicts</span>=rescue.service rescue.target</span><br><span class="line"><span class="attribute">After</span>=basic.target rescue.service rescue.target</span><br><span class="line"><span class="attribute">AllowIsolate</span>=<span class="literal">yes</span></span><br></pre></td></tr></table></figure>
+<ol start="4">
+<li>basic.target用于启动基本的图形管理服务和一些普通服务，具体清单为：/etc/systemd/system/multi-user.target.wants。<br>启动完成之后，会把控制权交给sysinit.target.</li>
+</ol>
+<figure class="highlight ini"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="section">[root@ralph]</span><span class="comment"># systemctl cat basic.target |grep Requires</span></span><br><span class="line"><span class="attr">Requires</span>=sysinit.target</span><br></pre></td></tr></table></figure>
+<ol start="5">
+<li>sysinit.target启动文件系统的挂载，内存交换空间…</li>
+</ol>
+<figure class="highlight ini"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="section">[root@ralph]</span><span class="comment"># systemctl cat sysinit.target</span></span><br><span class="line"><span class="section">[Unit]</span></span><br><span class="line"><span class="attr">Description</span>=System Initialization</span><br><span class="line"><span class="attr">Documentation</span>=man:systemd.special(<span class="number">7</span>)</span><br><span class="line"><span class="attr">Conflicts</span>=emergency.service emergency.target</span><br><span class="line"><span class="attr">Wants</span>=local-fs.target swap.target</span><br><span class="line"><span class="attr">After</span>=local-fs.target swap.target emergency.service emergency.target</span><br></pre></td></tr></table></figure>
+<ol start="6">
+<li>local-fs.target 专用于集合本地文件系统挂载点的目标单元。 systemd-fstab-generator(3) 会自动将 Before=local-fs.target 添加到所有本地挂载点所对应的 mount 单元中。 同时，对于 /etc/fstab 中带有 auto 选项的挂载点， 也会在 local-fs.target 中自动添加 指向这些自动挂载点所对应的 mount 单元的 Wants= 依赖</li>
+</ol>
+<h1 id="systemd管理系统"><a href="#systemd管理系统" class="headerlink" title="systemd管理系统"></a>systemd管理系统</h1><h2 id="Unit"><a href="#Unit" class="headerlink" title="Unit"></a>Unit</h2><p>systemd用于管理所以的系统资源，系统资源则被划分为Unit（类似与组的概念）,划分为Unit是出于方便管理。Unit总共分为以下几类：</p>
+<blockquote>
+<p>Service unit: 系统服务<br>Device Unit:     设备单元<br>Target Unit:    unit组<br>Mount Unit:    文件系统挂载点<br>Automount Unit:    文件系统自动挂载点<br>Timer Unit:    定时器组<br>Slice Unit:    进程组<br>Path Unit:    路经组<br>Socket Unit:    socket组<br>Swap Unit:    swap组<br>Snap Unit:    快照组<br>Scope Unit:    外部组</p>
+</blockquote>
+<h3 id="Unit的管理"><a href="#Unit的管理" class="headerlink" title="Unit的管理"></a>Unit的管理</h3><p>systemctl list-units 用于查看Unit列表<br>systemctl status xxx.service 用于查看Unit状态<br>systemctl start xxx.service 用于启动服务<br>systemctl stop xxx.service 用于停止服务<br>systemctl restart xxx.service 重启服务<br>systemctl kill xxx.service 杀死服务<br>systemctl reload xxx.service 重新加载服务配置<br>systemctl daemon-reload 重新加载所以修改过的服务配置文件<br>systemctl list-dependencies xxx.service 列出服务依赖</p>
+<h3 id="Unit的配置"><a href="#Unit的配置" class="headerlink" title="Unit的配置"></a>Unit的配置</h3><p>配置与linux其他配置一样的作用，用于给出systemd启动的方式，一般默认从/etc/systemd/system/读取，但实际指向的还是/usr/lib/systemd/system/.</p>
+<figure class="highlight tap"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[root@ralph]<span class="comment"># ls -l /etc/systemd/system/sysinit.target.wants/</span></span><br><span class="line">lrwxrwxrwx.<span class="number"> 1 </span>root root<span class="number"> 49 </span>10月 <span class="number"> 9 </span>09:44 dmraid-activation.service -&gt; /usr/lib/systemd/system/dmraid-activation.service</span><br><span class="line">lrwxrwxrwx <span class="number"> 1 </span>root root<span class="number"> 37 </span>10月<span class="number"> 10 </span>15:20 iscsi.service -&gt; /usr/lib/systemd/system/iscsi.service</span><br><span class="line">lrwxrwxrwx.<span class="number"> 1 </span>root root<span class="number"> 43 </span>10月 <span class="number"> 9 </span>09:45 lvm2-lvmetad.socket -&gt; /usr/lib/systemd/system/lvm2-lvmetad.socket</span><br><span class="line">lrwxrwxrwx.<span class="number"> 1 </span>root root<span class="number"> 44 </span>10月 <span class="number"> 9 </span>09:45 lvm2-lvmpolld.socket -&gt; /usr/lib/systemd/system/lvm2-lvmpolld.socket</span><br><span class="line">lrwxrwxrwx.<span class="number"> 1 </span>root root<span class="number"> 44 </span>10月 <span class="number"> 9 </span>09:45 lvm2-monitor.service -&gt; /usr/lib/systemd/system/lvm2-monitor.service</span><br></pre></td></tr></table></figure>
+<p>systemctl enable xxx.service 相当于设置开机启动，实际上就是建立类似上面两个文件的软链.<br>systemctl disable xxx.service 则是取消开机启动</p>
+<h2 id="Target"><a href="#Target" class="headerlink" title="Target"></a>Target</h2><p>Unit的组，用于方便启动一些整合好的Unit，从而启动一次达到一种想要的状态。与sysvinit的level对应。<br>systemctl list-unit-files –type=target 查看所有target<br>systemctl list-dependencies xxx.target  查看一个target包含的Unit<br>systemctl get-default 查看默认的target</p>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/linux-kernel/" rel="tag"># linux kernel</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2018/10/16/linux内核之启动流程/" rel="next" title="linux 内核之启动流程">
+                <i class="fa fa-chevron-left"></i> linux 内核之启动流程
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image"
+                src="/images/qian.gif"
+                alt="hjx" />
+            
+              <p class="site-author-name" itemprop="name">hjx</p>
+              <p class="site-description motion-element" itemprop="description">c | c++ | linux | ceph</p>
+          </div>
+
+          <nav class="site-state motion-element">
+
+            
+              <div class="site-state-item site-state-posts">
+              
+                <a href="/archives/">
+              
+                  <span class="site-state-item-count">4</span>
+                  <span class="site-state-item-name">日志</span>
+                </a>
+              </div>
+            
+
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-tags">
+                
+                  <span class="site-state-item-count">2</span>
+                  <span class="site-state-item-name">标签</span>
+                
+              </div>
+            
+
+          </nav>
+
+          
+
+          
+
+          
+          
+
+          
+          
+
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#简介"><span class="nav-number">1.</span> <span class="nav-text">简介</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#systemd是什么？"><span class="nav-number">2.</span> <span class="nav-text">systemd是什么？</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#启动过程"><span class="nav-number">3.</span> <span class="nav-text">启动过程</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#systemd-启动流程"><span class="nav-number">4.</span> <span class="nav-text">systemd 启动流程</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#systemd管理系统"><span class="nav-number">5.</span> <span class="nav-text">systemd管理系统</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Unit"><span class="nav-number">5.1.</span> <span class="nav-text">Unit</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Unit的管理"><span class="nav-number">5.1.1.</span> <span class="nav-text">Unit的管理</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Unit的配置"><span class="nav-number">5.1.2.</span> <span class="nav-text">Unit的配置</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Target"><span class="nav-number">5.2.</span> <span class="nav-text">Target</span></a></li></ol></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2018</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">hjx</span>
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a class="theme-link" target="_blank" href="https://hexo.io">Hexo</a> 强力驱动</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 &mdash; <a class="theme-link" target="_blank" href="https://github.com/iissnan/hexo-theme-next">NexT.Gemini</a> v5.1.4</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="true"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.4"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.4"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.4"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
