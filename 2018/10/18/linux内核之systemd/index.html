@@ -123,18 +123,18 @@ color="0,0,255" opacity='0.7' zIndex="-2" count="99" src="//cdn.bootcss.com/canv
 
 
 
-<meta name="description" content="简介本篇博客旨在搞清楚systemd开机启动过程，从而对systemd有一个基础的理解。上篇提及linux启动过程,本篇旨在搞清楚systemd的启动过程。 systemd是什么？ 在linux中，d是守护进程（daemon）的缩写，systemd也就指的是系统的守护进程。 取代了init（sysvinit）初始化系统，成为pid为1的系统守护进程。 主要设计理念是：尽可能启动更少的进程；尽可能多">
+<meta name="description" content="简介本篇博客旨在搞清楚systemd开机启动过程，从而对systemd有一个基础的理解。上篇提及linux启动过程,本篇入口为init进程执行/sbin/init。 systemd是什么？ 在linux中，d是守护进程（daemon）的缩写，systemd也就指的是系统的守护进程。 取代了init（sysvinit）初始化系统，成为pid为1的系统守护进程。 主要设计理念是：尽可能启动更少的进程；">
 <meta name="keywords" content="linux kernel">
 <meta property="og:type" content="article">
 <meta property="og:title" content="linux内核之systemd">
 <meta property="og:url" content="http://readonly.com/2018/10/18/linux内核之systemd/index.html">
 <meta property="og:site_name" content="Ralph">
-<meta property="og:description" content="简介本篇博客旨在搞清楚systemd开机启动过程，从而对systemd有一个基础的理解。上篇提及linux启动过程,本篇旨在搞清楚systemd的启动过程。 systemd是什么？ 在linux中，d是守护进程（daemon）的缩写，systemd也就指的是系统的守护进程。 取代了init（sysvinit）初始化系统，成为pid为1的系统守护进程。 主要设计理念是：尽可能启动更少的进程；尽可能多">
+<meta property="og:description" content="简介本篇博客旨在搞清楚systemd开机启动过程，从而对systemd有一个基础的理解。上篇提及linux启动过程,本篇入口为init进程执行/sbin/init。 systemd是什么？ 在linux中，d是守护进程（daemon）的缩写，systemd也就指的是系统的守护进程。 取代了init（sysvinit）初始化系统，成为pid为1的系统守护进程。 主要设计理念是：尽可能启动更少的进程；">
 <meta property="og:locale" content="zh-Hans">
-<meta property="og:updated_time" content="2018-10-18T03:19:12.279Z">
+<meta property="og:updated_time" content="2018-10-18T03:25:25.338Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="linux内核之systemd">
-<meta name="twitter:description" content="简介本篇博客旨在搞清楚systemd开机启动过程，从而对systemd有一个基础的理解。上篇提及linux启动过程,本篇旨在搞清楚systemd的启动过程。 systemd是什么？ 在linux中，d是守护进程（daemon）的缩写，systemd也就指的是系统的守护进程。 取代了init（sysvinit）初始化系统，成为pid为1的系统守护进程。 主要设计理念是：尽可能启动更少的进程；尽可能多">
+<meta name="twitter:description" content="简介本篇博客旨在搞清楚systemd开机启动过程，从而对systemd有一个基础的理解。上篇提及linux启动过程,本篇入口为init进程执行/sbin/init。 systemd是什么？ 在linux中，d是守护进程（daemon）的缩写，systemd也就指的是系统的守护进程。 取代了init（sysvinit）初始化系统，成为pid为1的系统守护进程。 主要设计理念是：尽可能启动更少的进程；">
 
 
 
@@ -364,7 +364,7 @@ color="0,0,255" opacity='0.7' zIndex="-2" count="99" src="//cdn.bootcss.com/canv
       
 
       
-        <h1 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h1><p>本篇博客旨在搞清楚systemd开机启动过程，从而对systemd有一个基础的理解。<br>上篇提及linux启动过程,本篇旨在搞清楚systemd的启动过程。</p>
+        <h1 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h1><p>本篇博客旨在搞清楚systemd开机启动过程，从而对systemd有一个基础的理解。<br>上篇提及linux启动过程,本篇入口为init进程执行/sbin/init。</p>
 <h1 id="systemd是什么？"><a href="#systemd是什么？" class="headerlink" title="systemd是什么？"></a>systemd是什么？</h1><ol>
 <li>在linux中，d是守护进程（daemon）的缩写，systemd也就指的是系统的守护进程。</li>
 <li>取代了init（sysvinit）初始化系统，成为pid为1的系统守护进程。</li>
