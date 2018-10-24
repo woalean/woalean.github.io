@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-Hans">
+
+
+<script type="text/javascript"
+color="0,0,255" opacity='0.7' zIndex="-2" count="99" src="//cdn.bootcss.com/canvas-nest.js/1.0.0/canvas-nest.min.js"></script>
+
+
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+    
+      
+    
+
+    
+  
+
+  
+
+  
+
+  
+    
+      
+    
+
+    
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic|PT Mono:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.4" rel="stylesheet" type="text/css" />
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=5.1.4">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=5.1.4" color="#222">
+
+
+
+
+
+  <meta name="keywords" content="ceph," />
+
+
+
+
+
+
+
+
+
+
+<meta name="description" content="本博客主要为记录自己学习过程，为避免误导他人，禁止转载.  简介本篇旨在理清async通信方式的组织框架，这里以mds模块为例,代码为伪代码。 mds async客户端(libcephfs.cc)主要是由struct ceph_mount_info *cmount组织管理,包括创建与moniter通信的客户端，与mds通信的客户端。 1234567891011121314151617181920">
+<meta name="keywords" content="ceph">
+<meta property="og:type" content="article">
+<meta property="og:title" content="ceph之async通信方式">
+<meta property="og:url" content="www.somebodyinfo.com/2018/10/24/ceph之async通信方式/index.html">
+<meta property="og:site_name" content="Ralph">
+<meta property="og:description" content="本博客主要为记录自己学习过程，为避免误导他人，禁止转载.  简介本篇旨在理清async通信方式的组织框架，这里以mds模块为例,代码为伪代码。 mds async客户端(libcephfs.cc)主要是由struct ceph_mount_info *cmount组织管理,包括创建与moniter通信的客户端，与mds通信的客户端。 1234567891011121314151617181920">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:updated_time" content="2018-10-24T03:14:06.954Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="ceph之async通信方式">
+<meta name="twitter:description" content="本博客主要为记录自己学习过程，为避免误导他人，禁止转载.  简介本篇旨在理清async通信方式的组织框架，这里以mds模块为例,代码为伪代码。 mds async客户端(libcephfs.cc)主要是由struct ceph_mount_info *cmount组织管理,包括创建与moniter通信的客户端，与mds通信的客户端。 1234567891011121314151617181920">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '5.1.4',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="www.somebodyinfo.com/2018/10/24/ceph之async通信方式/"/>
+
+
+
+
+
+  <title>ceph之async通信方式 | Ralph</title>
+  
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/"  class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Ralph</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="www.somebodyinfo.com/2018/10/24/ceph之async通信方式/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="hjx">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/qian.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Ralph">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">ceph之async通信方式</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-10-24T11:09:51+08:00">
+                2018-10-24
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <blockquote>
+<p><em>本博客主要为记录自己学习过程，为避免误导他人，禁止转载.</em></p>
+</blockquote>
+<h1 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h1><p>本篇旨在理清async通信方式的组织框架，这里以mds模块为例,代码为伪代码。</p>
+<h1 id="mds-async客户端-libcephfs-cc"><a href="#mds-async客户端-libcephfs-cc" class="headerlink" title="mds async客户端(libcephfs.cc)"></a>mds async客户端(libcephfs.cc)</h1><p>主要是由struct ceph_mount_info *cmount组织管理,包括创建与moniter通信的客户端，与mds通信的客户端。</p>
+<figure class="highlight haml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">1. ceph_create(&amp;cmount, char *id);</span><br><span class="line">	-<span class="ruby">&gt; CephInitParameters iparams(CEPH_ENTITY_TYPE_CLIENT);</span></span><br><span class="line"><span class="ruby">	-&gt; CephContext *cct = common_preinit(iparams, CODE_ENVIRONMENT_LIBRARY, <span class="number">0</span>);</span></span><br><span class="line"><span class="ruby">	-&gt; cct-&gt;_conf-&gt;parse_env();</span></span><br><span class="line"><span class="ruby">	-&gt; ceph_create_with_context(cmount, cct);</span></span><br><span class="line"><span class="ruby">		-&gt; *cmount = new struct ceph_mount_info(cct); <span class="regexp">/* 创建cmount */</span></span></span><br><span class="line"><span class="ruby"><span class="number">2</span>. ceph_init(cmount)</span></span><br><span class="line"><span class="ruby">	-&gt;cmount-&gt;init() &#123;</span></span><br><span class="line"><span class="ruby">		-&gt; common_init_finish(cct);</span></span><br><span class="line"><span class="ruby">		-&gt; monclient = new MonClient(cct); <span class="regexp">/* 用于与moniter通信 */</span></span></span><br><span class="line"><span class="ruby"></span></span><br><span class="line"><span class="ruby">		/* 创建 AsyncMessenger 通信模块 *<span class="regexp">/</span></span></span><br><span class="line"><span class="ruby">		-&gt; messenger = Messenger::create_client_messenger(cct, <span class="string">"client"</span>);</span></span><br><span class="line"><span class="ruby">			-&gt;Messenger::create(cct, type, ...);</span></span><br><span class="line"><span class="ruby">				<span class="keyword">if</span> (type == <span class="string">"async"</span>)</span></span><br><span class="line"><span class="ruby">					<span class="keyword">return</span> new AsyncMessenger(cct, name, ...);</span></span><br><span class="line"><span class="ruby"></span></span><br><span class="line"><span class="ruby">		-&gt; client = new StandaloneClient(messenger, monclient);</span></span><br><span class="line"><span class="ruby">		-&gt; messenger-&gt;start();</span></span><br><span class="line"><span class="ruby">			-&gt; AsyncMessenger::start();</span></span><br><span class="line"><span class="ruby">		-&gt; client-&gt;init();</span></span><br><span class="line"><span class="ruby">			-&gt; timer.init();</span></span><br><span class="line"><span class="ruby">			-&gt; objectcacher-&gt;start();</span></span><br><span class="line"><span class="ruby">			-&gt; objecter-&gt;init();</span></span><br><span class="line"><span class="ruby">			-&gt; messenger-&gt;add_dispatcher_tail(objecter);</span></span><br><span class="line"><span class="ruby">			-&gt; messenger-&gt;add_dispatcher_tail(this);</span></span><br><span class="line"><span class="ruby">			-&gt; monclient-&gt;init();</span></span><br><span class="line"><span class="ruby">			-&gt; objecter-&gt;start();</span></span><br><span class="line"><span class="ruby"></span></span><br><span class="line"><span class="ruby"><span class="number">3</span>. ceph_mount(cmount, char *root);</span></span><br><span class="line"><span class="ruby">	-&gt; cmount-&gt;mount(...);</span></span><br><span class="line"><span class="ruby">		-&gt; Client::mount(mount_root, perms);</span></span><br><span class="line"><span class="ruby">			-&gt; authenticate();</span></span><br><span class="line"><span class="ruby">			-&gt; tick();	<span class="regexp">/* 启动定时器 */</span></span></span><br></pre></td></tr></table></figure>
+<h1 id="AsyncMessenger类"><a href="#AsyncMessenger类" class="headerlink" title="AsyncMessenger类"></a>AsyncMessenger类</h1><figure class="highlight mipsasm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line">class AsyncMessenger : public SimplePolicyMessenger &#123;</span><br><span class="line">	...<span class="comment">;</span></span><br><span class="line">	NetworkStack *stack<span class="comment">;</span></span><br><span class="line"><span class="symbol">	std:</span>:vector&lt;Processor*&gt; processors<span class="comment">;</span></span><br><span class="line">	<span class="keyword">DispatchQueue </span><span class="keyword">dispatch_queue;</span></span><br><span class="line"><span class="keyword">	</span>Worker *local_worker<span class="comment">;</span></span><br><span class="line">	<span class="keyword">bool </span>pending_bind = false<span class="comment">;</span></span><br><span class="line">	EventCallbackRef reap_handler<span class="comment">;</span></span><br><span class="line">	ConnectionRef local_connection<span class="comment">;	/* 用于向自己发送消息 */</span></span><br><span class="line">	...<span class="comment">;</span></span><br><span class="line">&#125;<span class="comment">;</span></span><br><span class="line"></span><br><span class="line">class EventCallback &#123;	<span class="comment">/* 所有子类均需要实现do_request接口 */</span></span><br><span class="line">	virtual void do_request(int fd_or_id) = <span class="number">0</span><span class="comment">;</span></span><br><span class="line">&#125;<span class="comment">;</span></span><br><span class="line"></span><br><span class="line">typedef EventCallback* EventCallbackRef<span class="comment">;</span></span><br><span class="line"></span><br><span class="line">class Processor &#123;</span><br><span class="line">	AsyncMessenger *msgr<span class="comment">;</span></span><br><span class="line">	Worker *worker<span class="comment">;</span></span><br><span class="line">	NetHandler net<span class="comment">;</span></span><br><span class="line">	ServerSocket listen_socket<span class="comment">;</span></span><br><span class="line">	EventCallbackRef listen_handler<span class="comment">;</span></span><br><span class="line">	class C_processor_accept &#123;</span><br><span class="line">		Processor *pro<span class="comment">;</span></span><br><span class="line"></span><br><span class="line">		explicit C_processor_accept(Processor *p): pro(p) &#123;&#125;</span><br><span class="line">		void do_request(int id) override &#123;</span><br><span class="line">			pro-&gt;accept()<span class="comment">;</span></span><br><span class="line">		&#125;</span><br><span class="line">	&#125;<span class="comment">;</span></span><br><span class="line"></span><br><span class="line">	Processor(AsyncMessenger *r, Worker *w, CephContext *c) : msgr(r), worker(w), net(c) &#123;</span><br><span class="line">		listen_handler(new C_processor_accept(this)) &#123;&#125;	<span class="comment">/* new 一个C_processor_accept给listen_handler */</span></span><br><span class="line">	&#125;</span><br><span class="line">&#125;<span class="comment">;</span></span><br><span class="line"></span><br><span class="line">class NetworkStack &#123;</span><br><span class="line">	...<span class="comment">;</span></span><br><span class="line">	vector&lt;Worker*&gt; workers<span class="comment">;</span></span><br><span class="line">&#125;<span class="comment">;</span></span><br></pre></td></tr></table></figure>
+<p>构造函数：</p>
+<figure class="highlight haml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">AsyncMessenger(...);</span><br><span class="line">	-<span class="ruby">&gt; StackSingleton *single = new StackSingleton(...);</span></span><br><span class="line"><span class="ruby">	-&gt; single-&gt;ready(type);</span></span><br><span class="line"><span class="ruby">		-&gt; NetworkStack *stack = NetworkStack::create(cct, type);</span></span><br><span class="line"><span class="ruby">			-&gt; <span class="keyword">if</span> (type == <span class="string">"posix"</span>)</span></span><br><span class="line"><span class="ruby">				-&gt; <span class="keyword">return</span> std::make_shared&lt;PosixNetworkStack&gt;(c, t);</span></span><br><span class="line"><span class="ruby">					-&gt; PosixNetworkStack::PosixNetworkStack(c, t) : NetworkStack(c, t);</span></span><br><span class="line"><span class="ruby">						-&gt; num_workers = cct-&gt;_conf-&gt;ms_async_op_threads;</span></span><br><span class="line"><span class="ruby">						-&gt; <span class="keyword">for</span> (unsigned i = <span class="number">0</span>; i &lt; num_workers; ++i);</span></span><br><span class="line"><span class="ruby">							-&gt; Worker *w = create_worker(cct, type, i); <span class="regexp">/* 创建workers */</span></span></span><br><span class="line"><span class="ruby">							-&gt; w-&gt;center.init(InitEventNumber, i, type);</span></span><br><span class="line"><span class="ruby">							-&gt; workers.push_back(w);	<span class="regexp">/* 加入workers列表 */</span></span></span><br><span class="line"><span class="ruby">	-&gt; stack = single-&gt;stack.get();</span></span><br><span class="line"><span class="ruby">	-&gt; stack-&gt;start();</span></span><br><span class="line"><span class="ruby">		-&gt; NetworkStack::start();</span></span><br><span class="line"><span class="ruby">			-&gt; <span class="keyword">for</span> (unsigned i = <span class="number">0</span>; i &lt; num_workers; ++i) &#123;</span></span><br><span class="line"><span class="ruby">				-&gt; std::function&lt;void ()&gt; thread = add_thread(i); <span class="regexp">/* 定义线程函数 */</span></span></span><br><span class="line"><span class="ruby">					-&gt; Worker *w = workers[i];</span></span><br><span class="line"><span class="ruby">					-&gt; w-&gt;initialize();</span></span><br><span class="line"><span class="ruby">					-&gt; w-&gt;init_done();</span></span><br><span class="line"><span class="ruby">					-&gt; <span class="keyword">while</span> (!w-&gt;done())</span></span><br><span class="line"><span class="ruby">						-&gt; ceph::timespan dur;</span></span><br><span class="line"><span class="ruby">						-&gt; w-&gt;center.process_events(<span class="number">30000000</span>, &amp;dur);	<span class="regexp">/* 循环处理事件 */</span></span></span><br><span class="line"><span class="ruby">				-&gt; spawn_worker(i, std::move(thread));	<span class="regexp">/* 创建线程 */</span></span></span><br><span class="line"><span class="ruby">			&#125;</span></span><br><span class="line"><span class="ruby">	-&gt; local_connection = new AsyncConnection(cct, this, &amp;dispatch_queue, local_worker);</span></span><br><span class="line"><span class="ruby">	-&gt; init_local_connection();</span></span><br><span class="line"><span class="ruby">	-&gt; reap_handler = new C_handle_reap(this);</span></span><br><span class="line"><span class="ruby">	-&gt; processor_num = stack-&gt;get_num_worker();</span></span><br><span class="line"><span class="ruby">	-&gt; <span class="keyword">for</span> (unsigned i = <span class="number">0</span>; i &lt; processor_num; ++i) &#123;</span></span><br><span class="line"><span class="ruby">		processors.push_back(new Processor(this, stack-&gt;get_worker(i), cct)); <span class="regexp">/* 创建processors，并初始化其do_request方法为accept */</span></span></span><br><span class="line"><span class="ruby">	&#125;</span></span><br></pre></td></tr></table></figure>
+<h1 id="服务端"><a href="#服务端" class="headerlink" title="服务端"></a>服务端</h1><figure class="highlight haml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br></pre></td><td class="code"><pre><span class="line">int main();</span><br><span class="line">	-<span class="ruby">&gt; ...;</span></span><br><span class="line"><span class="ruby">	-&gt; Messenger *msgr = Messenger::create(g_ceph_context, public_msgr_type, ,<span class="string">"mds"</span>, nonce,.);</span></span><br><span class="line"><span class="ruby">		-&gt; Messenger::create(CephContext *cct, string &amp;type, ...);</span></span><br><span class="line"><span class="ruby">			-&gt; <span class="keyword">if</span> (type == <span class="string">"async"</span>) &#123;</span></span><br><span class="line"><span class="ruby">				<span class="keyword">return</span> new AsyncMessenger(cct, name, ...);</span></span><br><span class="line"><span class="ruby">			&#125;</span></span><br><span class="line"><span class="ruby">	-&gt; msgr-&gt;set_default_policy();</span></span><br><span class="line"><span class="ruby">	-&gt; ...;</span></span><br><span class="line"><span class="ruby">	-&gt; msgr-&gt;bind(g_conf-&gt;public_addr);</span></span><br><span class="line"><span class="ruby">		-&gt; AsyncMessenger::bind(g_conf-&gt;public_addr);</span></span><br><span class="line"><span class="ruby">			-&gt; <span class="keyword">for</span> (auto &amp;&amp;p : processors) &#123;</span></span><br><span class="line"><span class="ruby">				p-&gt;bind(bind_addr, avoid_ports, &amp;bound_addr);	<span class="regexp">/* 实际调用的是processor的bind */</span></span></span><br><span class="line"><span class="ruby">			&#125;</span></span><br><span class="line"><span class="ruby">	-&gt; global_init_daemonize(g_ceph_context);</span></span><br><span class="line"><span class="ruby">	-&gt; common_init_finish(g_ceph_context);</span></span><br><span class="line"><span class="ruby">	-&gt; MonClient mc(g_ceph_context);</span></span><br><span class="line"><span class="ruby">	-&gt; msgr-&gt;start();</span></span><br><span class="line"><span class="ruby">	-&gt; mds = new MDSDaemon(g_conf-&gt;name.get_id().c_str(), msgr, &amp;mc);</span></span><br><span class="line"><span class="ruby">	-&gt; mds-&gt;init();</span></span><br><span class="line"><span class="ruby">		-&gt; messenger-&gt;add_dispatcher_tail(&amp;beacon);</span></span><br><span class="line"><span class="ruby">		-&gt; messenger-&gt;add_dispatcher_tail(this);	<span class="regexp">/* mds 是一个dispatcher */</span></span></span><br><span class="line"><span class="ruby">			-&gt; <span class="keyword">if</span> (dispatcher.empty()) &#123;</span></span><br><span class="line"><span class="ruby">				ready(); <span class="regexp">/* AsyncMessenger::ready() */</span></span></span><br><span class="line"><span class="ruby">				-&gt; AsyncMessenger::ready();</span></span><br><span class="line"><span class="ruby">					-&gt; stack-&gt;ready();</span></span><br><span class="line"><span class="ruby">					-&gt; <span class="keyword">for</span> (auto &amp;&amp;p : processors) &#123;</span></span><br><span class="line"><span class="ruby">						p-&gt;start();</span></span><br><span class="line"><span class="ruby">						-&gt; Processor::start();</span></span><br><span class="line"><span class="ruby">							-&gt; <span class="keyword">if</span> (listen_socket) &#123;</span></span><br><span class="line"><span class="ruby">								/* 向EventCenter发布file_event(listen读事件),处理函数为listen_handler == processor-&gt;accept() *<span class="regexp">/</span></span></span><br><span class="line"><span class="ruby">								worker-&gt;center.submit_to(worker-&gt;center.get_id(), [this]() &#123;</span></span><br><span class="line"><span class="ruby">										worker-&gt;center.create_file_event(listen_socket.fd(), EVENT_READABLE, listen_handler); &#125;, <span class="literal">false</span>);</span></span><br><span class="line"><span class="ruby">										&#125;	/* 见下面的EventCenter详解 *<span class="regexp">/</span></span></span><br><span class="line"><span class="ruby">								-&gt; listen_handler对应Processor::do_request -&gt; Processor::accept();</span></span><br><span class="line"><span class="ruby">								-&gt; <span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span></span><br><span class="line"><span class="ruby">									-&gt; Worker *w = worker;</span></span><br><span class="line"><span class="ruby">									-&gt; listen_socket.accept(&amp;cli_socket, opts, &amp;addr, w);</span></span><br><span class="line"><span class="ruby">									-&gt; msgr-&gt;add_accept(w, std::move(cli_socket), addr);</span></span><br><span class="line"><span class="ruby">										-&gt; AsyncConnectionRef conn = new AsyncConnection(cct, this, &amp;dispatch_queue, w); <span class="regexp">/* 见下面的AsyncConnection */</span></span></span><br><span class="line"><span class="ruby">										-&gt; conn-&gt;accept(std::move(cli_socket), addr);</span></span><br><span class="line"><span class="ruby">											-&gt; AsyncConnection::accept(ConnectedSocket socket, entity_addr_t &amp;addr);</span></span><br><span class="line"><span class="ruby">												-&gt; center-&gt;dispatch_event_external(read_handler);	<span class="regexp">/* read_handler实际对应conn-&gt;process */</span></span></span><br><span class="line"><span class="ruby">										-&gt; accepting_conns.insert(conn);</span></span><br><span class="line"><span class="ruby">								&#125;</span></span><br><span class="line"><span class="ruby">							&#125;</span></span><br><span class="line"><span class="ruby">					&#125;</span></span><br><span class="line"><span class="ruby">					-&gt; dispatch_queue.start();</span></span><br><span class="line"><span class="ruby">			&#125;</span></span><br><span class="line"><span class="ruby">	-&gt; ...;</span></span><br></pre></td></tr></table></figure>
+<p>可以看到，accept后,会new一个AsyncConnection处理，看一下AsyncConnection结构：</p>
+<figure class="highlight mipsasm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">class AsyncConnection: public Connection &#123;</span><br><span class="line">	...<span class="comment">;</span></span><br><span class="line">	AsyncMessenger *async_msgr<span class="comment">;</span></span><br><span class="line">	<span class="keyword">DispatchQueue </span>*<span class="keyword">dispatch_queue;</span></span><br><span class="line"><span class="keyword">	</span>EventCallbackRef read_handler<span class="comment">;</span></span><br><span class="line">	EventCallbackRef write_handler<span class="comment">;</span></span><br><span class="line">	EventCallbackRef wakeup_handler<span class="comment">;</span></span><br><span class="line">	EventCallbackRef tick_handler<span class="comment">;</span></span><br><span class="line">	char *recv_buf<span class="comment">;</span></span><br><span class="line">	Worker *worker<span class="comment">;</span></span><br><span class="line">	EventCenter *center<span class="comment">;</span></span><br><span class="line">	...<span class="comment">;</span></span><br><span class="line"></span><br><span class="line">	AsyncConnection(CephContext *cct, AsyncMessenger *m, <span class="keyword">DispatchQueue </span>*q, Worker *w) :</span><br><span class="line">		Connection(cct, m), <span class="keyword">dispatch_queue(q), </span>worker(w), center(&amp;w-&gt;center) &#123;</span><br><span class="line">			read_handler = new C_handle_read(this)<span class="comment">;</span></span><br><span class="line">			write_handler = new C_handle_write(this)<span class="comment">;</span></span><br><span class="line">			wakeup_handler = new C_time_wakeup(this)<span class="comment">;</span></span><br><span class="line">			tick_handler = new C_tick_wakeup(this)<span class="comment">;</span></span><br><span class="line">			recv_buf = new char[<span class="number">2</span>*recv_max_prefetch]<span class="comment">;</span></span><br><span class="line">			...<span class="comment">;</span></span><br><span class="line">		&#125;</span><br><span class="line">&#125;<span class="comment">;</span></span><br></pre></td></tr></table></figure>
+<p>EventCenter负责消息的分派：</p>
+<figure class="highlight clean"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> EventCenter &#123;</span><br><span class="line">	...;</span><br><span class="line">	deque&lt;EventCallbackRef&gt; external_events;</span><br><span class="line">	vector&lt;FileEvent&gt; file_events;</span><br><span class="line">	EventDriver *driver;</span><br><span class="line">	std::map&lt;uint64_t, std::multimap&lt;clock_type::time_point, TimeEvent&gt;::iterator&gt; event_map;</span><br><span class="line">	...;</span><br><span class="line"></span><br><span class="line">	init(int n, unsigned i, const std::string &amp;t) &#123;</span><br><span class="line">		-&gt; driver = new EpollDriver(cct);</span><br><span class="line">		-&gt; driver-&gt;init();</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	create_file_event(int fd, int mask, EventCallbackRef ctxt) &#123;</span><br><span class="line">		-&gt; EventCenter::FileEvent *event = _get_file_event(fd);</span><br><span class="line">		-&gt; driver-&gt;add_event(fd, event-&gt;mask, mask);</span><br><span class="line">			-&gt; epoll_ctl(epfd, op, fd, &amp;ee);	<span class="comment">/* wakeup EventCenter::process_events */</span></span><br><span class="line">		-&gt; event-&gt;mask |= mask;</span><br><span class="line">		-&gt; <span class="keyword">if</span> (mask &amp; EVENT_READABLE) &#123;</span><br><span class="line">			event-&gt;read_cb = ctxt;</span><br><span class="line">		&#125;</span><br><span class="line">		-&gt; <span class="keyword">if</span> (mask &amp; EVENT_WRITABLE) &#123;</span><br><span class="line">			event-&gt;write_cb = ctxt;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	process_events(int timeout_microseconds,  ceph::timespan *working_dur) &#123;</span><br><span class="line">		...;</span><br><span class="line">		-&gt; driver-&gt;event_wait(fired_events, &amp;tv); <span class="comment">/* epoll_wait */</span></span><br><span class="line">		-&gt; for (int j = <span class="number">0</span>; j &lt; numevents; j++) &#123;</span><br><span class="line">			-&gt; <span class="keyword">if</span> (read) &#123;</span><br><span class="line">				cb = event-&gt;read_cb;</span><br><span class="line">				cb-&gt;do_request(fired_events[j].fd);</span><br><span class="line">			&#125;</span><br><span class="line">			-&gt; <span class="keyword">if</span> (write) &#123;</span><br><span class="line">				cb = event-&gt;write_cb;</span><br><span class="line">				cb-&gt;do_request(fired_events[j].fd);</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<h1 id="服务端总结"><a href="#服务端总结" class="headerlink" title="服务端总结"></a>服务端总结</h1><p>结构关系：</p>
+<ol>
+<li>创建AsyncMessenger *msgr;</li>
+<li>每个AsyncMessenger管理了:<br> 1）一个NetworkStack <em>stack；<br> 2）一个Processor</em>列表；<br> 3）一个DispatchQueue派发队列；</li>
+<li>每个NetworkStack管理了：<br> 1）一个workers队列</li>
+<li>每个Processor组合了： AsyncMessenger, Worker, ServerSocket, EventCallback</li>
+</ol>
+<p>启动逻辑：<br>-&gt; 创建一个AsyncMessenger<br>-&gt; 创建一个NetworkStack<br>-&gt; 根据配置创建一个或多个Worker并出使化<br>-&gt; 创建并初始化Worker的消息处理线程<br>-&gt; 绑定socket<br>-&gt; 根据配置创建一个或多个Processor并把对应的Worker，AsyncMessenger, EventCallback组合起来<br>-&gt; 把一个（mds/mgr/osd/mon）dispatcher加入派发者队列<br>-&gt; ready这个派发者的Messenger,对于AsyncMessenger而言，会进入accept状态</p>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/ceph/" rel="tag"># ceph</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2018/10/18/linux内核之systemd/" rel="next" title="linux内核之systemd">
+                <i class="fa fa-chevron-left"></i> linux内核之systemd
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image"
+                src="/images/qian.gif"
+                alt="hjx" />
+            
+              <p class="site-author-name" itemprop="name">hjx</p>
+              <p class="site-description motion-element" itemprop="description">c | c++ | linux | ceph</p>
+          </div>
+
+          <nav class="site-state motion-element">
+
+            
+              <div class="site-state-item site-state-posts">
+              
+                <a href="/archives/">
+              
+                  <span class="site-state-item-count">5</span>
+                  <span class="site-state-item-name">日志</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-categories">
+                <a href="/categories/index.html">
+                  <span class="site-state-item-count">1</span>
+                  <span class="site-state-item-name">分类</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-tags">
+                
+                  <span class="site-state-item-count">3</span>
+                  <span class="site-state-item-name">标签</span>
+                
+              </div>
+            
+
+          </nav>
+
+          
+
+          
+
+          
+          
+
+          
+          
+
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#简介"><span class="nav-number">1.</span> <span class="nav-text">简介</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#mds-async客户端-libcephfs-cc"><span class="nav-number">2.</span> <span class="nav-text">mds async客户端(libcephfs.cc)</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#AsyncMessenger类"><span class="nav-number">3.</span> <span class="nav-text">AsyncMessenger类</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#服务端"><span class="nav-number">4.</span> <span class="nav-text">服务端</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#服务端总结"><span class="nav-number">5.</span> <span class="nav-text">服务端总结</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2018</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">hjx</span>
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a class="theme-link" target="_blank" href="https://hexo.io">Hexo</a> 强力驱动</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 &mdash; <a class="theme-link" target="_blank" href="https://github.com/iissnan/hexo-theme-next">NexT.Gemini</a> v5.1.4</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="true"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.4"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.4"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.4"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
