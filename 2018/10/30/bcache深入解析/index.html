@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-Hans">
+
+
+<script type="text/javascript"
+color="0,0,255" opacity='0.7' zIndex="-2" count="99" src="//cdn.bootcss.com/canvas-nest.js/1.0.0/canvas-nest.min.js"></script>
+
+
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+    
+      
+    
+
+    
+  
+
+  
+
+  
+
+  
+    
+      
+    
+
+    
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic|PT Mono:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.4" rel="stylesheet" type="text/css" />
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=5.1.4">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=5.1.4" color="#222">
+
+
+
+
+
+  <meta name="keywords" content="bcache," />
+
+
+
+
+
+
+
+
+
+
+<meta name="description" content="本博客主要为记录自己学习过程，为避免误导他人，禁止转载.  简介 bcache 设备注册逻辑梳理 bcache io逻辑梳理 bcache 数据回刷逻辑梳理 bcache 数据结构梳理  设备注册逻辑1234567891011121314151617181920212223242526272829register_bcache(struct kobject *k, struct kobj_att">
+<meta name="keywords" content="bcache">
+<meta property="og:type" content="article">
+<meta property="og:title" content="bcache深入解析">
+<meta property="og:url" content="www.somebodyinfo.com/2018/10/30/bcache深入解析/index.html">
+<meta property="og:site_name" content="Ralph">
+<meta property="og:description" content="本博客主要为记录自己学习过程，为避免误导他人，禁止转载.  简介 bcache 设备注册逻辑梳理 bcache io逻辑梳理 bcache 数据回刷逻辑梳理 bcache 数据结构梳理  设备注册逻辑1234567891011121314151617181920212223242526272829register_bcache(struct kobject *k, struct kobj_att">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:updated_time" content="2018-10-30T08:48:54.864Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="bcache深入解析">
+<meta name="twitter:description" content="本博客主要为记录自己学习过程，为避免误导他人，禁止转载.  简介 bcache 设备注册逻辑梳理 bcache io逻辑梳理 bcache 数据回刷逻辑梳理 bcache 数据结构梳理  设备注册逻辑1234567891011121314151617181920212223242526272829register_bcache(struct kobject *k, struct kobj_att">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '5.1.4',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="www.somebodyinfo.com/2018/10/30/bcache深入解析/"/>
+
+
+
+
+
+  <title>bcache深入解析 | Ralph</title>
+  
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/"  class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Ralph</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="www.somebodyinfo.com/2018/10/30/bcache深入解析/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="hjx">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/qian.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Ralph">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">bcache深入解析</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-10-30T16:09:19+08:00">
+                2018-10-30
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <blockquote>
+<p><em>本博客主要为记录自己学习过程，为避免误导他人，禁止转载.</em></p>
+</blockquote>
+<h1 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h1><ol>
+<li>bcache 设备注册逻辑梳理</li>
+<li>bcache io逻辑梳理</li>
+<li>bcache 数据回刷逻辑梳理</li>
+<li>bcache 数据结构梳理</li>
+</ol>
+<h1 id="设备注册逻辑"><a href="#设备注册逻辑" class="headerlink" title="设备注册逻辑"></a>设备注册逻辑</h1><figure class="highlight haml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">register_bcache(struct kobject *k, struct kobj_attribute *attr, const char *buffer, size_t size);</span><br><span class="line">-<span class="ruby">&gt; struct block_device *bdev = blkdev_get_by_path(...);		<span class="regexp">/* 根据磁盘路径获取bdev */</span></span></span><br><span class="line"><span class="ruby">-&gt; read_super(sb, bdev, &amp;sb_page);	<span class="regexp">/* 读取设备超级块,大部分数据在make-bcache时写入 */</span></span></span><br><span class="line"><span class="ruby">-&gt; <span class="keyword">if</span> (是后端设备) &#123;</span></span><br><span class="line"><span class="ruby">	-&gt; struct cached_dev *dc = kzalloc(sizeof(*dc), GFP_KERNEL);	<span class="regexp">/* 申请一个对应后端设备的内存结构dc */</span></span></span><br><span class="line"><span class="ruby">	-&gt; register_bdev(sb, sb_page, bdev, dc);	<span class="regexp">/* 注册这个后端设备，最终体现为/dev</span><span class="regexp">/ycachex */</span></span></span><br><span class="line"><span class="ruby">		-&gt; cached_dev_init(dc, sb-&gt;block_size &lt;&lt; <span class="number">9</span>);	<span class="regexp">/* 初始化dc */</span></span></span><br><span class="line"><span class="ruby">			-&gt; ...;</span></span><br><span class="line"><span class="ruby">			-&gt; bcache_device_init(&amp;dc-&gt;disk, block_size,sectors);</span></span><br><span class="line"><span class="ruby">			-&gt; bch_cached_dev_request_init(dc); <span class="regexp">/* 初始化request */</span></span></span><br><span class="line"><span class="ruby">			-&gt; bch_cached_dev_writeback_init(dc);	<span class="regexp">/* 初始化writeback */</span></span></span><br><span class="line"><span class="ruby">				-&gt; 注册cached_dev_make_request(struct request_queue *q, struct bio *bio);	<span class="regexp">/* cached dev io 入口 */</span></span></span><br><span class="line"><span class="ruby">		-&gt; list_add(&amp;dc-&gt;list, &amp;uncached_devices);		<span class="regexp">/* 加入未缓存设备表 */</span></span></span><br><span class="line"><span class="ruby">		-&gt; list_for_each_entry(c, &amp;bch_cache_sets, list)	</span></span><br><span class="line"><span class="ruby">			-&gt; bch_cached_dev_attach(dc, c, NULL);			<span class="regexp">/* 加入已有的cache set */</span></span></span><br><span class="line"><span class="ruby">				-&gt; ...;</span></span><br><span class="line"><span class="ruby">				-&gt; bch_cached_dev_writeback_start(dc);	<span class="regexp">/* 启动writeback线程 */</span></span></span><br><span class="line"><span class="ruby">	&#125;</span></span><br><span class="line"><span class="ruby">-&gt; <span class="keyword">if</span> (是缓存设备) &#123;</span></span><br><span class="line"><span class="ruby">	-&gt; struct cache *ca = kzalloc(sizeof(*ca), GFP_KERNEL);	<span class="regexp">/* 申请一个对应缓存设备的内存结构ca */</span></span></span><br><span class="line"><span class="ruby">	-&gt; register_cache(sb, sb_page, bdev, ca);	<span class="regexp">/*  注册缓存设备 */</span></span></span><br><span class="line"><span class="ruby">		-&gt; cache_alloc(ca);	<span class="regexp">/* 初始化ca */</span></span></span><br><span class="line"><span class="ruby">		-&gt; register_cache_set(ca);	<span class="regexp">/* */</span></span></span><br><span class="line"><span class="ruby">			-&gt; list_for_each_entry(c, &amp;bch_cache_sets, list);	<span class="regexp">/* 查找是否已经加入cache set表 */</span></span></span><br><span class="line"><span class="ruby">			-&gt; struct cache_set *c = bch_cache_set_alloc(&amp;ca-&gt;sb);	<span class="regexp">/* 申请一个cache set并出使化，各种队列，bucket初始化 */</span></span></span><br><span class="line"><span class="ruby">			-&gt; list_add(&amp;c-&gt;list, &amp;bch_cache_sets);	<span class="regexp">/* 加入cache set表 */</span></span></span><br><span class="line"><span class="ruby">			-&gt; ca-&gt;set = c;	<span class="regexp">/* 建立ca与 cache set联系 */</span></span></span><br><span class="line"><span class="ruby">			-&gt; run_cache_set(c);</span></span><br><span class="line"><span class="ruby">	&#125;</span></span><br></pre></td></tr></table></figure>
+<h1 id="io分析"><a href="#io分析" class="headerlink" title="io分析"></a>io分析</h1><figure class="highlight mipsasm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">cached_dev_make_request(struct </span>request_queue *q, struct <span class="keyword">bio </span>*<span class="keyword">bio) </span>&#123;</span><br><span class="line">	struct <span class="keyword">bcache_device </span>*d = <span class="keyword">bio-&gt;bi_disk-&gt;private_data;</span></span><br><span class="line"><span class="keyword">	</span>struct <span class="keyword">cached_dev </span>*dc = container_of(d, struct <span class="keyword">cached_dev, </span><span class="keyword">disk);</span></span><br><span class="line"><span class="keyword">	</span>...<span class="comment">;</span></span><br><span class="line">	if (<span class="keyword">cached_dev_get(dc)) </span>&#123;	<span class="comment">/* 如果device有对应的缓存设备 */</span></span><br><span class="line">		struct search *s = search_alloc(<span class="keyword">bio, </span>d)<span class="comment">;</span></span><br><span class="line">		s-&gt;iop.<span class="keyword">bypass </span>= check_should_bypass(dc, <span class="keyword">bio);	</span><span class="comment">/* 如果bio为discard或者达到缓存阀值则pass */</span></span><br><span class="line">		if (rw) &#123;</span><br><span class="line">			<span class="keyword">cached_dev_write(dc, </span>s) &#123;</span><br><span class="line">				...<span class="comment">;</span></span><br><span class="line">				<span class="keyword">bch_keybuf_check_overlapping(&amp;dc-&gt;writeback_keys, </span>&amp;start, &amp;end)<span class="comment">;	/* 如果writeback与要写区域重合，进入writeback流程 */</span></span><br><span class="line">				...<span class="comment">;	/* 检查bio要走的路径：pass，writeback，直接写device */</span></span><br><span class="line">				if (pass) &#123;</span><br><span class="line">				&#125; else if (writeback) &#123;</span><br><span class="line">					<span class="keyword">bch_writeback_add(dc) </span>&#123;</span><br><span class="line">						if (dc 没有脏标志) &#123;</span><br><span class="line">							SET_BDEV_STATE(&amp;dc-&gt;<span class="keyword">sb, </span><span class="keyword">BDEV_STATE_DIRTY);	</span><span class="comment">/* 置脏dc */</span></span><br><span class="line">							<span class="keyword">bch_write_bdev_super(dc, </span>NULL)<span class="comment">; /* 同步更新device super */</span></span><br><span class="line">						&#125;</span><br><span class="line">						<span class="keyword">bch_writeback_queue(dc) </span>&#123;</span><br><span class="line">							wake_up_process(dc-&gt;writeback_thread)<span class="comment">;	/* 唤醒writeback线程 */</span></span><br><span class="line">						&#125;</span><br><span class="line">					&#125;</span><br><span class="line">				&#125; else &#123;</span><br><span class="line">				&#125;</span><br><span class="line">			&#125;</span><br><span class="line">			<span class="keyword">closure_call(&amp;s-&gt;iop.cl, </span><span class="keyword">bch_data_insert, </span>NULL, cl)<span class="comment">;	/* 把数据压入cache */</span></span><br><span class="line">			-&gt; <span class="keyword">bch_data_insert(cl) </span>&#123;</span><br><span class="line">				struct data_insert_op *op = container_of(cl, struct data_insert_op, cl)<span class="comment">;</span></span><br><span class="line">				<span class="keyword">bch_keylist_init(&amp;op-&gt;insert_keys);</span></span><br><span class="line"><span class="keyword">	</span>			<span class="keyword">bio_get(op-&gt;bio);	</span><span class="comment">/* 增加bio引用计数 */</span></span><br><span class="line">				<span class="keyword">bch_data_insert_start(cl) </span>&#123;</span><br><span class="line">					...<span class="comment">;</span></span><br><span class="line">					struct <span class="keyword">bio </span>*<span class="keyword">bio </span>= op-&gt;<span class="keyword">bio, </span>*n<span class="comment">;</span></span><br><span class="line">					...<span class="comment">;</span></span><br><span class="line">					do &#123;</span><br><span class="line">						...<span class="comment">;</span></span><br><span class="line">						struct <span class="keyword">bkey </span>*k = op-&gt;<span class="keyword">insert_keys.top;	</span></span><br><span class="line">						<span class="keyword">bkey_init(k);	</span><span class="comment">/* key(0,0,0) */</span></span><br><span class="line">						SET_KEY_INODE(k, op-&gt;inode)<span class="comment">;</span></span><br><span class="line">						SET_KEY_OFFSET(k, <span class="keyword">bio-&gt;bi_iter.bi_sector);</span></span><br><span class="line"><span class="keyword">	</span>					<span class="keyword">bch_alloc_sectors(op-&gt;c, </span>k, <span class="keyword">bio_sectors(bio), </span>op-&gt;write_point, op-&gt;write_prio, op-&gt;writeback) &#123;	<span class="comment">/* 申请bucket空间 */</span></span><br><span class="line">							struct open_bucket *<span class="keyword">b </span>= <span class="keyword">b </span>= pick_data_bucket(c, k, write_point, &amp;alloc.key)<span class="comment">;	/* 寻找合适的bucket */</span></span><br><span class="line">							<span class="keyword">bch_bucket_alloc_set(c, </span>watermark, &amp;alloc.key, <span class="number">1</span>, <span class="keyword">wait) </span>&#123;</span><br><span class="line">								<span class="keyword">bkey_init(&amp;alloc.key);</span></span><br><span class="line"><span class="keyword">	</span>							struct <span class="keyword">cache </span>*ca = c-&gt;<span class="keyword">cache_by_alloc[i];	</span><span class="comment">/* 以下这些逻辑是在一个for循环下，指多个cache设备的情况，这里只分析一个cache的情况 */</span></span><br><span class="line">								<span class="keyword">bch_bucket_alloc(ca, </span><span class="number">1</span>, <span class="keyword">wait);</span></span><br><span class="line"><span class="keyword">	</span>							k-&gt;ptr[i] = MAKE_PTR(ca-&gt;<span class="keyword">buckets[b].gen,bucket_to_sector(c, </span><span class="keyword">b), </span>ca-&gt;<span class="keyword">sb.nr_this_dev);	</span><span class="comment">/* i=0 */</span></span><br><span class="line">								SET_KEY_PTRS(k, i + <span class="number">1</span>)<span class="comment">;</span></span><br><span class="line">							&#125;</span><br><span class="line">							...<span class="comment">;</span></span><br><span class="line">							SET_KEY_OFFSET(k, KEY_OFFSET(k) + sectors)<span class="comment">;</span></span><br><span class="line">							SET_KEY_SIZE(k, sectors)<span class="comment">;</span></span><br><span class="line">							SET_KEY_PTRS(k, KEY_PTRS(&amp;<span class="keyword">b-&gt;key));</span></span><br><span class="line"><span class="keyword">	</span>						...<span class="comment">;</span></span><br><span class="line">						&#125;</span><br><span class="line">						n = io_next_split(<span class="keyword">bio, </span>KEY_SIZE(k), GFP_NOIO, split)<span class="comment">;	/* 获取下一片的信息 */</span></span><br><span class="line">						n-&gt;<span class="keyword">bi_end_io </span>   = <span class="keyword">bch_data_insert_endio;</span></span><br><span class="line"><span class="keyword">	</span>					n-&gt;<span class="keyword">bi_private </span>  = cl<span class="comment">;</span></span><br><span class="line">						</span><br><span class="line">						if (op-&gt;writeback) &#123;</span><br><span class="line">							SET_KEY_DIRTY(k, true)<span class="comment">;	/* 把bkey置脏 */</span></span><br><span class="line">							for (i = <span class="number">0</span><span class="comment">; i &lt; KEY_PTRS(k); i++)</span></span><br><span class="line">								SET_GC_MARK(PTR_BUCKET(op-&gt;c, k, i), GC_MARK_DIRTY)<span class="comment">;	/* 置gc标识，回收线程依据此标识决定是否回收 */</span></span><br><span class="line">						&#125;</span><br><span class="line">						SET_KEY_CSUM(k, op-&gt;csum)<span class="comment">;</span></span><br><span class="line">						<span class="keyword">bch_keylist_push(&amp;op-&gt;insert_keys);	</span><span class="comment">/* 移动op-&gt;insert_keys.top指针，确保下一轮循环起始位置 */</span></span><br><span class="line">						<span class="keyword">bio_set_op_attrs(n, </span>REQ_OP_WRITE, <span class="number">0</span>)<span class="comment">;</span></span><br><span class="line">						<span class="keyword">bch_submit_bbio(n, </span>op-&gt;c, k, <span class="number">0</span>)<span class="comment">;	/* 发布该bio */</span></span><br><span class="line">					&#125; while(<span class="keyword">bio片不为0);	</span><span class="comment">/* 依次处理bio的页列表 */</span></span><br><span class="line"></span><br><span class="line">					op-&gt;<span class="keyword">insert_data_done </span>= true<span class="comment">;</span></span><br><span class="line">					continue_at(cl, <span class="keyword">bch_data_insert_keys, </span>op-&gt;wq)<span class="comment">;</span></span><br><span class="line">					-&gt; <span class="keyword">bch_data_insert_keys(struct </span><span class="keyword">closure </span>*cl) &#123;	<span class="comment">/* 把数据压入cache */</span></span><br><span class="line">						if (!op-&gt;replace)	<span class="comment">/* 如果不是完全覆盖写的话，先写日志 */</span></span><br><span class="line">							<span class="keyword">journal_ref </span>= <span class="keyword">bch_journal(op-&gt;c, </span>&amp;op-&gt;<span class="keyword">insert_keys, </span>op-&gt;flush_journal ? cl : NULL)<span class="comment">;</span></span><br><span class="line"></span><br><span class="line">						<span class="keyword">bch_btree_insert(op-&gt;c, </span>&amp;op-&gt;<span class="keyword">insert_keys, </span><span class="keyword">journal_ref, </span>replace_key)<span class="comment">;	/* 把bkeys插入b+tree */</span></span><br><span class="line">						<span class="keyword">bch_keylist_free(&amp;op-&gt;insert_keys);</span></span><br><span class="line"><span class="keyword">	</span>				&#125;</span><br><span class="line">				&#125;</span><br><span class="line">			&#125;</span><br><span class="line">			continue_at(cl, <span class="keyword">cached_dev_write_complete, </span>NULL)<span class="comment">;	/* 引用计数--后若为0时，则cached_dev_write_complete */</span></span><br><span class="line">		&#125; else &#123;</span><br><span class="line">			<span class="keyword">cached_dev_read(dc, </span>s)<span class="comment">;</span></span><br><span class="line">		&#125;</span><br><span class="line">	&#125; else &#123;	<span class="comment">/* 如果没有对应的缓存设备 */</span></span><br><span class="line">		generic_make_request(<span class="keyword">bio);	</span><span class="comment">/* 直接交与device */</span></span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h1 id="数据回刷-writeback-thread"><a href="#数据回刷-writeback-thread" class="headerlink" title="数据回刷(writeback thread)"></a>数据回刷(writeback thread)</h1><figure class="highlight mipsasm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">bch_writeback_thread(void </span>*arg) &#123;</span><br><span class="line">	struct <span class="keyword">cached_dev </span>*dc = arg<span class="comment">;</span></span><br><span class="line">	<span class="keyword">bool </span>searched_full_index<span class="comment">;</span></span><br><span class="line">	</span><br><span class="line">	while (runing) &#123;</span><br><span class="line">		<span class="comment">/* dc 非脏或writebach未运行，则直接跳过 */</span></span><br><span class="line">		if (!atomic_read(&amp;dc-&gt;has_dirty) <span class="title">||</span> (!test_bit(<span class="keyword">BCACHE_DEV_DETACHING, </span>&amp;dc-&gt;<span class="keyword">disk.flags) </span>&amp;&amp; dc-&gt;writeback_running)) &#123;</span><br><span class="line">			...<span class="comment">;</span></span><br><span class="line">			continue<span class="comment">;</span></span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		set_current_state(TASK_RUNNING)<span class="comment">;</span></span><br><span class="line">		searched_full_index = refill_dirty(dc) &#123;</span><br><span class="line">			struct <span class="keyword">bkey </span>start = KEY(dc-&gt;<span class="keyword">disk.id, </span><span class="number">0</span>, <span class="number">0</span>)<span class="comment">;	/* dc-&gt;disk.id 为uuid entry */</span></span><br><span class="line">			struct <span class="keyword">bkey </span>end = KEY(dc-&gt;<span class="keyword">disk.id, </span>MAX_KEY_OFFSET, <span class="number">0</span>)<span class="comment">;</span></span><br><span class="line">			struct <span class="keyword">bkey </span>start_pos = <span class="keyword">buf-&gt;last_scanned;</span></span><br><span class="line"><span class="keyword">	</span>		<span class="keyword">bch_refill_keybuf(dc-&gt;disk.c, </span><span class="keyword">buf, </span>&amp;end, <span class="keyword">dirty_pred) </span>&#123;</span><br><span class="line">				<span class="comment">/* 从cache的root(b+tree)树中，把对应该dc的脏bkey取出并加入dc-&gt;writeback_keys */</span></span><br><span class="line">			&#125;</span><br><span class="line"></span><br><span class="line">			if (扫描整块磁盘也没发现脏<span class="keyword">bkeys) </span>&#123;</span><br><span class="line">				atomic_set(&amp;dc-&gt;has_dirty, <span class="number">0</span>)<span class="comment">;</span></span><br><span class="line">				<span class="keyword">cached_dev_put(dc);</span></span><br><span class="line"><span class="keyword">	</span>			SET_BDEV_STATE(&amp;dc-&gt;<span class="keyword">sb, </span><span class="keyword">BDEV_STATE_CLEAN);</span></span><br><span class="line"><span class="keyword">	</span>			<span class="keyword">bch_write_bdev_super(dc, </span>NULL)<span class="comment">;</span></span><br><span class="line">			&#125;</span><br><span class="line"></span><br><span class="line">			up_write(&amp;dc-&gt;writeback_lock)<span class="comment">;</span></span><br><span class="line">			ch_ratelimit_reset(&amp;dc-&gt;writeback_rate)<span class="comment">;</span></span><br><span class="line"></span><br><span class="line">			read_dirty(dc) &#123;</span><br><span class="line">				<span class="comment">/* 把dc-&gt;writeback_keys中的bkeys 回刷到后端设备 */</span></span><br><span class="line">			&#125;</span><br><span class="line">		</span><br><span class="line">			<span class="comment">/* 更新刷新条件，等待下次回刷 */</span></span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h1 id="数据结构"><a href="#数据结构" class="headerlink" title="数据结构:"></a>数据结构:</h1><h2 id="bkey"><a href="#bkey" class="headerlink" title="bkey"></a>bkey</h2><figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">bkey</span></span> &#123;</span><br><span class="line">	__<span class="built_in">u64</span>	high;</span><br><span class="line">	__<span class="built_in">u64</span>	low;</span><br><span class="line">	__<span class="built_in">u64</span>	ptr[];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="bkey-high-64位"><a href="#bkey-high-64位" class="headerlink" title="bkey high 64位"></a>bkey high 64位</h3><table>
+<thead>
+<tr>
+<th>KEY_PTRS</th>
+<th>HEADER_SIZE</th>
+<th>KEY_SUM</th>
+<th>KEY_PINNED</th>
+<th>KEY_DIRTY</th>
+<th>KEY_SIZE</th>
+<th>KEY_INODE</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3bit</td>
+<td>2bit</td>
+<td>2bit</td>
+<td>1bit</td>
+<td>1bit</td>
+<td>20bit</td>
+<td>20bit</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td>缓存数据是否脏</td>
+<td>bkey对应缓存数据大小</td>
+<td>后端设备id</td>
+</tr>
+</tbody>
+</table>
+<h3 id="low-64位"><a href="#low-64位" class="headerlink" title="low 64位"></a>low 64位</h3><table>
+<thead>
+<tr>
+<th>KEY_OFFSET</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>64bit</td>
+</tr>
+<tr>
+<td>bkey缓存的数据在hdd上的结束偏移</td>
+</tr>
+</tbody>
+</table>
+<h3 id="ptr"><a href="#ptr" class="headerlink" title="ptr[]:"></a>ptr[]:</h3><table>
+<thead>
+<tr>
+<th>PTR_DEV</th>
+<th>PTR_OFFSET</th>
+<th>PTR_GEN</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>12bit</td>
+<td>43bit</td>
+<td>8bit</td>
+</tr>
+<tr>
+<td>cache设备</td>
+<td>在缓存设备中该数据块的起始地址</td>
+<td>bucket版本</td>
+</tr>
+</tbody>
+</table>
+<p>#define KEY(inode, offset, size) –&gt; .low = offset, KEY_SIZE = size, KEY_INODE = inode</p>
+<h2 id="bset"><a href="#bset" class="headerlink" title="bset"></a>bset</h2><figure class="highlight mipsasm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line">磁盘上的物理结构：</span><br><span class="line">struct <span class="keyword">bset </span>&#123;</span><br><span class="line">	__u64	csum<span class="comment">;</span></span><br><span class="line">	__u64	magic<span class="comment">;</span></span><br><span class="line">	__u64	seq<span class="comment">;</span></span><br><span class="line">	__u64	version<span class="comment">;</span></span><br><span class="line">	__u64	keys<span class="comment">;</span></span><br><span class="line">	union &#123;</span><br><span class="line">		struct <span class="keyword">bkey </span>start[<span class="number">0</span>]<span class="comment">;</span></span><br><span class="line">		__u64	d[<span class="number">0</span>]<span class="comment">;</span></span><br><span class="line">	&#125;<span class="comment">;</span></span><br><span class="line">&#125;<span class="comment">;</span></span><br><span class="line">	</span><br><span class="line">内存中的结构：</span><br><span class="line">struct <span class="keyword">bset_tree </span>&#123;</span><br><span class="line">	unsigned	size<span class="comment">;</span></span><br><span class="line">	unsigned	<span class="keyword">extra;</span></span><br><span class="line"><span class="keyword">	</span>struct <span class="keyword">bkey	</span>end<span class="comment">;</span></span><br><span class="line">	struct <span class="keyword">bkey_float	</span>*tree<span class="comment">;</span></span><br><span class="line">	uint8_t		*prev<span class="comment">;</span></span><br><span class="line">	struct <span class="keyword">bset </span>*data<span class="comment">;</span></span><br><span class="line">&#125;<span class="comment">;</span></span><br><span class="line"></span><br><span class="line">struct <span class="keyword">btree_keys </span>&#123;</span><br><span class="line">	const struct <span class="keyword">btree_keys_ops </span>*ops<span class="comment">;</span></span><br><span class="line">	uint8_t         page_order<span class="comment">;</span></span><br><span class="line">	uint8_t         nsets<span class="comment">;</span></span><br><span class="line">	unsigned        last_set_unwritten:<span class="number">1</span><span class="comment">;</span></span><br><span class="line">	<span class="keyword">bool </span>           *expensive_debug_checks<span class="comment">;</span></span><br><span class="line">	struct <span class="keyword">bset_tree </span>   set[MAX_BSETS]<span class="comment">;	/* MAX_BSETS = 4 */</span></span><br><span class="line">&#125;<span class="comment">;</span></span><br><span class="line"></span><br><span class="line">struct <span class="keyword">btree </span>&#123;</span><br><span class="line">	struct hlist_node	hash<span class="comment">;</span></span><br><span class="line">	<span class="keyword">BKEY_PADDED(key);</span></span><br><span class="line"><span class="keyword">	</span>...<span class="comment">;</span></span><br><span class="line">	struct <span class="keyword">cache_set </span>   *c<span class="comment">;</span></span><br><span class="line">	struct <span class="keyword">btree </span>       *parent<span class="comment">;</span></span><br><span class="line">	struct <span class="keyword">btree_keys </span>  keys<span class="comment">;</span></span><br><span class="line">	...<span class="comment">;</span></span><br><span class="line">&#125;<span class="comment">;</span></span><br></pre></td></tr></table></figure>
+<h2 id="bucket"><a href="#bucket" class="headerlink" title="bucket"></a>bucket</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">bucket</span> &#123;</span></span><br><span class="line">	<span class="keyword">atomic_t</span>	pin;</span><br><span class="line">	<span class="keyword">uint16_t</span>	prio;</span><br><span class="line">	<span class="keyword">uint8_t</span>		gen;</span><br><span class="line">	<span class="keyword">uint8_t</span>		last_gc;</span><br><span class="line">	<span class="keyword">uint16_t</span>	gc_mark;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<h2 id="keylist"><a href="#keylist" class="headerlink" title="keylist"></a>keylist</h2><figure class="highlight crystal"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">keylist</span> &#123;</span></span><br><span class="line">	<span class="class"><span class="keyword">union</span> &#123;</span></span><br><span class="line">		<span class="class"><span class="keyword">struct</span> <span class="title">bkey</span> *<span class="title">keys</span>;</span></span><br><span class="line">		uint64_t	*keys_p;</span><br><span class="line">	&#125;;</span><br><span class="line">	<span class="class"><span class="keyword">union</span> &#123;</span></span><br><span class="line">		<span class="class"><span class="keyword">struct</span> <span class="title">bkey</span> *<span class="title">top</span>;</span></span><br><span class="line">		uint64_t	*top_p;</span><br><span class="line">	&#125;;</span><br><span class="line">	uint64_t inline_keys[<span class="number">16</span>];</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/bcache/" rel="tag"># bcache</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2018/10/24/ceph之async通信方式/" rel="next" title="ceph之async通信方式">
+                <i class="fa fa-chevron-left"></i> ceph之async通信方式
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image"
+                src="/images/qian.gif"
+                alt="hjx" />
+            
+              <p class="site-author-name" itemprop="name">hjx</p>
+              <p class="site-description motion-element" itemprop="description">c | c++ | linux | ceph</p>
+          </div>
+
+          <nav class="site-state motion-element">
+
+            
+              <div class="site-state-item site-state-posts">
+              
+                <a href="/archives/">
+              
+                  <span class="site-state-item-count">6</span>
+                  <span class="site-state-item-name">日志</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-categories">
+                <a href="/categories/index.html">
+                  <span class="site-state-item-count">1</span>
+                  <span class="site-state-item-name">分类</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-tags">
+                
+                  <span class="site-state-item-count">3</span>
+                  <span class="site-state-item-name">标签</span>
+                
+              </div>
+            
+
+          </nav>
+
+          
+
+          
+
+          
+          
+
+          
+          
+
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#简介"><span class="nav-number">1.</span> <span class="nav-text">简介</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#设备注册逻辑"><span class="nav-number">2.</span> <span class="nav-text">设备注册逻辑</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#io分析"><span class="nav-number">3.</span> <span class="nav-text">io分析</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#数据回刷-writeback-thread"><span class="nav-number">4.</span> <span class="nav-text">数据回刷(writeback thread)</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#数据结构"><span class="nav-number">5.</span> <span class="nav-text">数据结构:</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#bkey"><span class="nav-number">5.1.</span> <span class="nav-text">bkey</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#bkey-high-64位"><span class="nav-number">5.1.1.</span> <span class="nav-text">bkey high 64位</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#low-64位"><span class="nav-number">5.1.2.</span> <span class="nav-text">low 64位</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#ptr"><span class="nav-number">5.1.3.</span> <span class="nav-text">ptr[]:</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#bset"><span class="nav-number">5.2.</span> <span class="nav-text">bset</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#bucket"><span class="nav-number">5.3.</span> <span class="nav-text">bucket</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#keylist"><span class="nav-number">5.4.</span> <span class="nav-text">keylist</span></a></li></ol></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2018</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">hjx</span>
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a class="theme-link" target="_blank" href="https://hexo.io">Hexo</a> 强力驱动</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 &mdash; <a class="theme-link" target="_blank" href="https://github.com/iissnan/hexo-theme-next">NexT.Gemini</a> v5.1.4</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="true"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.4"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.4"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.4"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
